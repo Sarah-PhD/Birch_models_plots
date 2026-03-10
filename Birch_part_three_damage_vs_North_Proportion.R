@@ -290,6 +290,46 @@ drop1(update(m_downy_plot_pel, REML = FALSE), test = "Chisq")
 summary(m_downy_stand_pel)
 drop1(update(m_downy_stand_pel, REML = FALSE), test = "Chisq")
 
+#________________________________
+#6a)
+#Model for species not individual
+
+Sp <- lmer(damage_N ~ species * prop_s_plot * total_pellets_log
+                            + north_c + stem_count + year
+                            + (1 | area) + (1 | stand_number))
+#---------------------------------
+#6b) Graphs for the proportion plus pellets
+
+
+library(ggeffects)
+
+pred_plot <- ggpredict(
+  m_downy_plot_pel,
+  terms = c("total_pellets_log", "prop_s_plot [0, 0.5, 1]")
+)
+
+library(ggplot2)
+
+ggplot(pred_plot, aes(x = x, y = predicted, colour = group, fill = group)) +
+  geom_line(size = 1.2) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.2, colour = NA) +
+  scale_colour_manual(values = c("#3BA64C", "#66C26F", "#1F7F35")) +
+  scale_fill_manual(values = c("#3BA64C", "#66C26F", "#1F7F35")) +
+  labs(
+    x = "Log pellet density",
+    y = "Predicted Downy browsing severity",
+    colour = "Silver proportion",
+    fill = "Silver proportion"
+  ) +
+  theme_classic()
+
+#Stand levek
+
+pred_stand <- ggpredict(
+  m_downy_stand_pel,
+  terms = c("pellets_log_mean", "prop_s_stand [0, 0.5, 1]")
+)
+
 #----------------------------#
 # 7) CLEAN PREDICTION PLOTS (publication-ready)
 #----------------------------#
@@ -406,8 +446,8 @@ p_prop_stand <- ggplot() +
     colour = NA
   ) +
   
-  scale_colour_manual(values = c("Downy" = "#FDE725FF", "Silver" = "#238A8DFF")) +
-  scale_fill_manual(values = c("Downy" = "#FDE725FF", "Silver" = "#238A8DFF")) +
+  scale_colour_manual(values = c("Downy" = "#3BA64C", "Silver" = "#4C5C8C")) +
+  scale_fill_manual(values = c("Downy" = "#3BA64C", "Silver" = "#4C5C8C")) +
   
   labs(
     x = "Proportion silver (stand)",
@@ -448,8 +488,8 @@ p_north_stand <- ggplot() +
     colour = NA
   ) +
   
-  scale_colour_manual(values = c("Downy" = "#FDE725FF", "Silver" = "#238A8DFF")) +
-  scale_fill_manual(values = c("Downy" = "#FDE725FF", "Silver" = "#238A8DFF")) +
+  scale_colour_manual(values = c("Downy" = "#3BA64C", "Silver" = "#4C5C8C")) +
+  scale_fill_manual(values = c("Downy" = "#3BA64C", "Silver" = "#4C5C8C")) +
   
   labs(
     x = "North coordinate (centered, stand mean)",
@@ -491,7 +531,7 @@ library(ggeffects)
 library(patchwork)
 
 #----- Your palette (same as earlier) -----
-pal <- c("Downy" = "#FDE725FF", "Silver" = "#238A8DFF")
+pal <- c("Downy" = "#3BA64C", "Silver" = "#4C5C8C")
 
 #----- Consistent journal theme -----
 theme_journal <- function() {
@@ -598,7 +638,7 @@ library(ggplot2)
 library(ggeffects)
 library(patchwork)
 
-pal <- c("Downy" = "#FDE725FF", "Silver" = "#238A8DFF")
+pal <- c("Downy" = "#3BA64C", "Silver" = "#4C5C8C")
 
 theme_journal <- function() {
   theme_classic(base_size = 13) +
@@ -752,7 +792,7 @@ library(ggeffects)
 library(patchwork)
 library(dplyr)
 
-pal <- c("Downy" = "#FDE725FF", "Silver" = "#238A8DFF")
+pal <- c("Downy" = "#3BA64C", "Silver" = "#4C5C8C")
 
 theme_journal <- function() {
   theme_classic(base_size = 13) +

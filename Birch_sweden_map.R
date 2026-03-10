@@ -1,4 +1,4 @@
-=========================================================
+#=========================================================
   # Sweden map: ONE point per area (equal size) + non-overlapping labels
   # Requires: area_tbl_out with columns: area, lon, lat (WGS84)
   #=========================================================
