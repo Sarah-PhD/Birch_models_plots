@@ -1606,5 +1606,482 @@ tab_model(
   show.obs = TRUE,
   title = "Table. Deer pellet models",
   file = "deer_pellet_models.html"
+))
+
+###############################################################################
+# PART E: DOES BIRCH AFFECT PINE DAMAGE?
+# Tests:
+#   1) Does total birch abundance affect pine damage?
+#   2) Do downy and silver birch differ in their effect on pine damage?
+#   3) Does this relationship vary with latitude?
+#   4) Does the relationship differ in northern vs southern stands?
+###############################################################################
+
+#----------------------------#
+# 0) Packages
+#----------------------------#
+library(dplyr)
+library(lme4)
+library(lmerTest)
+library(MuMIn)
+library(ggplot2)
+library(ggeffects)
+library(patchwork)
+library(sjPlot)
+
+#----------------------------#
+# 1) Prepare pine dataset
+#    Assumes Birch_2425 already exists and has north_model
+#----------------------------#
+pine_df <- Birch_2425 %>%
+  mutate(
+    year = as.factor(year),
+    stand_number = as.factor(stand_number),
+    
+    pine_stems = suppressWarnings(as.numeric(as.character(pine_stems))),
+    pine_damage_prop = suppressWarnings(as.numeric(as.character(proportion_pine_damage_winter))),
+    
+    downy_total = suppressWarnings(as.numeric(as.character(downy_total))),
+    silver_total = suppressWarnings(as.numeric(as.character(silver_total))),
+    north_model = suppressWarnings(as.numeric(as.character(north_model)))
+  ) %>%
+  mutate(
+    total_birch = downy_total + silver_total
+  ) %>%
+  filter(
+    !is.na(area),
+    !is.na(stand_number),
+    !is.na(year),
+    !is.na(north_model),
+    !is.na(pine_stems),
+    pine_stems > 0,
+    !is.na(pine_damage_prop)
+  )
+
+# Quick checks
+summary(pine_df[, c("pine_damage_prop", "pine_stems", "downy_total", "silver_total", "total_birch", "north_model")])
+table(pine_df$year, useNA = "ifany")
+
+#----------------------------#
+# 2) Scale predictors
+#----------------------------#
+pine_df <- pine_df %>%
+  mutate(
+    north_c = as.numeric(scale(north_model, center = TRUE, scale = FALSE)),
+    downy_c = as.numeric(scale(downy_total, center = TRUE, scale = FALSE)),
+    silver_c = as.numeric(scale(silver_total, center = TRUE, scale = FALSE)),
+    birch_total_c = as.numeric(scale(total_birch, center = TRUE, scale = FALSE))
+  )
+
+#----------------------------#
+# 3) Define north vs south
+#    Split at the median latitude
+#----------------------------#
+north_split <- median(pine_df$north_model, na.rm = TRUE)
+
+pine_df <- pine_df %>%
+  mutate(
+    region = ifelse(north_model > north_split, "North", "South"),
+    region = factor(region, levels = c("South", "North"))
+  )
+
+table(pine_df$region, useNA = "ifany")
+
+#----------------------------#
+# 4) Core models
+#----------------------------#
+
+# 4A) Total birch effect
+m_pine_total <- lmer(
+  pine_damage_prop ~ birch_total_c + north_c + year +
+    (1 | area) + (1 | stand_number),
+  data = pine_df,
+  REML = TRUE
+)
+
+# 4B) Species-specific birch effects
+m_pine_species <- lmer(
+  pine_damage_prop ~ downy_c + silver_c + north_c + year +
+    (1 | area) + (1 | stand_number),
+  data = pine_df,
+  REML = TRUE
+)
+
+# 4C) Total birch × latitude
+m_pine_total_north <- lmer(
+  pine_damage_prop ~ birch_total_c * north_c + year +
+    (1 | area) + (1 | stand_number),
+  data = pine_df,
+  REML = TRUE
+)
+
+# 4D) Species-specific birch × latitude
+m_pine_species_north <- lmer(
+  pine_damage_prop ~ downy_c * north_c + silver_c * north_c + year +
+    (1 | area) + (1 | stand_number),
+  data = pine_df,
+  REML = TRUE
+)
+
+#----------------------------#
+# 5) Separate north and south models
+#----------------------------#
+pine_north <- pine_df %>% filter(region == "North")
+pine_south <- pine_df %>% filter(region == "South")
+
+m_pine_total_north_only <- lmer(
+  pine_damage_prop ~ birch_total_c + year +
+    (1 | area) + (1 | stand_number),
+  data = pine_north,
+  REML = TRUE
+)
+
+m_pine_total_south_only <- lmer(
+  pine_damage_prop ~ birch_total_c + year +
+    (1 | area) + (1 | stand_number),
+  data = pine_south,
+  REML = TRUE
+)
+
+m_pine_species_north_only <- lmer(
+  pine_damage_prop ~ downy_c + silver_c + year +
+    (1 | area) + (1 | stand_number),
+  data = pine_north,
+  REML = TRUE
+)
+
+m_pine_species_south_only <- lmer(
+  pine_damage_prop ~ downy_c + silver_c + year +
+    (1 | area) + (1 | stand_number),
+  data = pine_south,
+  REML = TRUE
+)
+
+#----------------------------#
+# 6) Summaries and drop1 tests
+#----------------------------#
+summary(m_pine_total)
+r.squaredGLMM(m_pine_total)
+drop1(update(m_pine_total, REML = FALSE), test = "Chisq")
+
+summary(m_pine_species)
+r.squaredGLMM(m_pine_species)
+drop1(update(m_pine_species, REML = FALSE), test = "Chisq")
+
+summary(m_pine_total_north)
+r.squaredGLMM(m_pine_total_north)
+drop1(update(m_pine_total_north, REML = FALSE), test = "Chisq")
+
+summary(m_pine_species_north)
+r.squaredGLMM(m_pine_species_north)
+drop1(update(m_pine_species_north, REML = FALSE), test = "Chisq")
+
+summary(m_pine_total_north_only)
+summary(m_pine_total_south_only)
+summary(m_pine_species_north_only)
+summary(m_pine_species_south_only)
+
+#----------------------------#
+# 7) Figures
+#----------------------------#
+theme_pub <- function() {
+  theme_classic(base_size = 13) +
+    theme(
+      legend.position = "top",
+      legend.title = element_blank(),
+      axis.title = element_text(size = 12),
+      axis.text  = element_text(size = 11),
+      plot.title = element_text(face = "bold", size = 12),
+      plot.title.position = "plot",
+      strip.background = element_blank(),
+      strip.text = element_text(face = "bold")
+    )
+}
+
+# 7A) Raw total birch vs pine damage, north vs south
+p_raw_total <- ggplot(
+  pine_df,
+  aes(x = total_birch, y = pine_damage_prop, colour = region)
+) +
+  geom_point(alpha = 0.30, size = 1.5) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1.0) +
+  labs(
+    title = "A  Raw relationship: total birch abundance vs pine damage",
+    x = "Total birch stems",
+    y = "Pine winter damage (%)"
+  ) +
+  theme_pub()
+
+p_raw_total
+
+# 7B) Raw downy vs pine damage
+p_raw_downy <- ggplot(
+  pine_df,
+  aes(x = downy_total, y = pine_damage_prop, colour = region)
+) +
+  geom_point(alpha = 0.30, size = 1.5) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1.0) +
+  labs(
+    title = "B  Raw relationship: downy birch abundance vs pine damage",
+    x = "Downy birch stems",
+    y = "Pine winter damage (%)"
+  ) +
+  theme_pub()
+
+p_raw_downy
+
+# 7C) Raw silver vs pine damage
+p_raw_silver <- ggplot(
+  pine_df,
+  aes(x = silver_total, y = pine_damage_prop, colour = region)
+) +
+  geom_point(alpha = 0.30, size = 1.5) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1.0) +
+  labs(
+    title = "C  Raw relationship: silver birch abundance vs pine damage",
+    x = "Silver birch stems",
+    y = "Pine winter damage (%)"
+  ) +
+  theme_pub()
+
+p_raw_silver
+
+# 7D) Modelled total birch effect
+pred_total <- ggpredict(
+  m_pine_total,
+  terms = c("birch_total_c [all]")
+) %>% as.data.frame()
+
+p_model_total <- ggplot() +
+  geom_point(
+    data = pine_df,
+    aes(x = birch_total_c, y = pine_damage_prop),
+    alpha = 0.20, size = 1.4
+  ) +
+  geom_ribbon(
+    data = pred_total,
+    aes(x = x, ymin = conf.low, ymax = conf.high),
+    alpha = 0.15
+  ) +
+  geom_line(
+    data = pred_total,
+    aes(x = x, y = predicted),
+    linewidth = 1.2
+  ) +
+  labs(
+    title = "D  Modelled total birch effect on pine damage",
+    x = "Total birch abundance (centered)",
+    y = "Predicted pine winter damage (%)"
+  ) +
+  theme_pub()
+
+p_model_total
+
+# 7E) Modelled species-specific birch effects
+pred_species_downy <- ggpredict(
+  m_pine_species,
+  terms = c("downy_c [all]")
+) %>% as.data.frame()
+
+pred_species_silver <- ggpredict(
+  m_pine_species,
+  terms = c("silver_c [all]")
+) %>% as.data.frame()
+
+p_model_downy <- ggplot() +
+  geom_point(
+    data = pine_df,
+    aes(x = downy_c, y = pine_damage_prop),
+    alpha = 0.20, size = 1.4
+  ) +
+  geom_ribbon(
+    data = pred_species_downy,
+    aes(x = x, ymin = conf.low, ymax = conf.high),
+    alpha = 0.15
+  ) +
+  geom_line(
+    data = pred_species_downy,
+    aes(x = x, y = predicted),
+    linewidth = 1.2
+  ) +
+  labs(
+    title = "E  Modelled downy birch effect on pine damage",
+    x = "Downy birch abundance (centered)",
+    y = "Predicted pine winter damage (%)"
+  ) +
+  theme_pub()
+
+p_model_silver <- ggplot() +
+  geom_point(
+    data = pine_df,
+    aes(x = silver_c, y = pine_damage_prop),
+    alpha = 0.20, size = 1.4
+  ) +
+  geom_ribbon(
+    data = pred_species_silver,
+    aes(x = x, ymin = conf.low, ymax = conf.high),
+    alpha = 0.15
+  ) +
+  geom_line(
+    data = pred_species_silver,
+    aes(x = x, y = predicted),
+    linewidth = 1.2
+  ) +
+  labs(
+    title = "F  Modelled silver birch effect on pine damage",
+    x = "Silver birch abundance (centered)",
+    y = "Predicted pine winter damage (%)"
+  ) +
+  theme_pub()
+
+p_model_downy
+p_model_silver
+
+# 7F) Total birch × latitude model
+pred_total_north <- ggpredict(
+  m_pine_total_north,
+  terms = c("birch_total_c [all]", "north_c [-0.5,0,0.5]")
+) %>% as.data.frame()
+
+p_total_north <- ggplot(
+  pred_total_north,
+  aes(x = x, y = predicted, colour = group, fill = group)
+) +
+  geom_line(linewidth = 1.2) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = 0.15, colour = NA) +
+  labs(
+    title = "G  Total birch effect on pine damage at different latitudes",
+    x = "Total birch abundance (centered)",
+    y = "Predicted pine winter damage (%)",
+    colour = "Latitude level",
+    fill = "Latitude level"
+  ) +
+  theme_pub()
+
+p_total_north
+
+# 7G) North vs south separate fits
+p_region_total <- ggplot(
+  pine_df,
+  aes(x = birch_total_c, y = pine_damage_prop, colour = region)
+) +
+  geom_point(alpha = 0.25, size = 1.5) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1.0) +
+  facet_wrap(~ region, nrow = 1) +
+  labs(
+    title = "H  Total birch effect on pine damage in northern vs southern stands",
+    x = "Total birch abundance (centered)",
+    y = "Pine winter damage (%)"
+  ) +
+  theme_pub()
+
+p_region_total
+
+# 7H) Combined figure
+fig_pine_main <- p_model_total + p_total_north + p_region_total +
+  plot_layout(ncol = 3, guides = "collect") &
+  theme(legend.position = "top")
+
+fig_pine_main
+
+# Optional save
+# ggsave("Fig_pine_birch_effects.png", fig_pine_main, width = 15, height = 5, dpi = 600)
+
+#----------------------------#
+# 8) Viewer tables with whole-model information
+#----------------------------#
+tab_model(
+  m_pine_total,
+  m_pine_species,
+  m_pine_total_north,
+  m_pine_species_north,
+  dv.labels = c(
+    "Total birch model",
+    "Species-specific birch model",
+    "Total birch × latitude model",
+    "Species-specific birch × latitude model"
+  ),
+  show.ci = TRUE,
+  show.se = TRUE,
+  show.stat = TRUE,
+  show.p = TRUE,
+  show.aic = TRUE,
+  show.icc = TRUE,
+  show.re.var = TRUE,
+  show.r2 = TRUE,
+  show.obs = TRUE,
+  title = "Table. Mixed-effects models of pine browsing damage in relation to birch abundance and latitude"
+)
+
+tab_model(
+  m_pine_total_north_only,
+  m_pine_total_south_only,
+  m_pine_species_north_only,
+  m_pine_species_south_only,
+  dv.labels = c(
+    "North stands: total birch model",
+    "South stands: total birch model",
+    "North stands: species-specific model",
+    "South stands: species-specific model"
+  ),
+  show.ci = TRUE,
+  show.se = TRUE,
+  show.stat = TRUE,
+  show.p = TRUE,
+  show.aic = TRUE,
+  show.icc = TRUE,
+  show.re.var = TRUE,
+  show.r2 = TRUE,
+  show.obs = TRUE,
+  title = "Table. North vs south mixed-effects models of pine browsing damage"
+)
+
+# Optional HTML export
+tab_model(
+  m_pine_total,
+  m_pine_species,
+  m_pine_total_north,
+  m_pine_species_north,
+  dv.labels = c(
+    "Total birch model",
+    "Species-specific birch model",
+    "Total birch × latitude model",
+    "Species-specific birch × latitude model"
+  ),
+  show.ci = TRUE,
+  show.se = TRUE,
+  show.stat = TRUE,
+  show.p = TRUE,
+  show.aic = TRUE,
+  show.icc = TRUE,
+  show.re.var = TRUE,
+  show.r2 = TRUE,
+  show.obs = TRUE,
+  title = "Table. Mixed-effects models of pine browsing damage in relation to birch abundance and latitude",
+  file = "pine_birch_models.html"
+)
+
+tab_model(
+  m_pine_total_north_only,
+  m_pine_total_south_only,
+  m_pine_species_north_only,
+  m_pine_species_south_only,
+  dv.labels = c(
+    "North stands: total birch model",
+    "South stands: total birch model",
+    "North stands: species-specific model",
+    "South stands: species-specific model"
+  ),
+  show.ci = TRUE,
+  show.se = TRUE,
+  show.stat = TRUE,
+  show.p = TRUE,
+  show.aic = TRUE,
+  show.icc = TRUE,
+  show.re.var = TRUE,
+  show.r2 = TRUE,
+  show.obs = TRUE,
+  title = "Table. North vs south mixed-effects models of pine browsing damage",
+  file = "pine_birch_models_north_south.html"
 )
 
