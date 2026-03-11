@@ -54,8 +54,7 @@ anova(m_plot)["species:north", ]
 
 m_nb <- glmer.nb(
   stems ~ species * north_c + factor(year) +
-    (1 | area) +
-    (1 | stand_number),
+    (1 | area/stand_number),
   data = birch_long_plot,
   control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
 )
@@ -305,7 +304,10 @@ m_nb_sum <- glmer.nb(
 summary(m_nb_sum)
 car::Anova(m_nb_sum, type = 3)
 
-
+birch_long_plot %>%
+  distinct(area, stand_number, plot_id) %>%   # use your actual plot ID column
+  count(area, stand_number) %>%
+  count(n)
 #############################################################################
 # PLOTS
 ########################################################################

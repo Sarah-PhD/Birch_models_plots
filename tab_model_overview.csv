@@ -1,0 +1,6 @@
+"Model","N","Groups","AIC","BIC","LogLik"
+"Plot-level combined species model",1856,"stand_id, area",16228.3,16294.7,-8102.17
+"Stand-level combined species model",438,"area",3771.1,3816,-1874.55
+"Downy plot-level pellets model",998,"stand_id, area",8583.8,8632.9,-4281.92
+"Downy stand-level pellets model",219,"area",1854.8,1885.3,-918.38
+"Species × mixture × pellets model",1856,"stand_id, area",16258.4,16335.8,-8115.21

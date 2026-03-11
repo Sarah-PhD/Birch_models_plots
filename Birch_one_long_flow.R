@@ -376,3 +376,7 @@ p_area_year_raw <- ggplot(area_year_raw,
 
 p_area_year_raw
 ################################################################################
+birch_long_plot %>%
+  count(area, stand_number, plot_id) %>%
+  count(n)
+
