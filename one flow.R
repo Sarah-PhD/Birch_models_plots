@@ -98,12 +98,3 @@ birch_plot_long_pel2 %>%
     pine_prop_min = min(pine_damage_prop, na.rm = TRUE),
     pine_prop_max = max(pine_damage_prop, na.rm = TRUE)
   )
-
-with(birch_long_plot, any(duplicated(interaction(area, stand_number))))
-# should be FALSE if each stand exists in only one area (it usually is FALSE)
-
-with(birch_long_plot, any(duplicated(stand_number)))
-# if TRUE, then stand_number repeats across areas -> your current random effect is wrong
-tab <- with(birch_long_plot, tapply(area, stand_number, function(x) length(unique(x))))
-summary(tab)
-any(tab > 1)

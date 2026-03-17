@@ -17,6 +17,68 @@
 #   - Keep code DRY: one builder for long plot data, one builder for long stand data
 #   - Clean/standardise AREA names to avoid misspellings splitting groups
 ################################################################################
+
+ÄBIN_compact <- read.csv(
+  "C:/Users/shge0002/Documents/R/R/ÄBIN2025raw/2025-BINdata_raw/abin_compact.csv",
+  stringsAsFactors = FALSE,
+  check.names = FALSE
+)
+
+Birch <- ÄBIN_compact %>%
+  janitor::clean_names() %>%
+  rename(
+    stand_number   = stand,
+    surveyer       = surveyor,
+    pine_undamaged = pine_unbrowsed,
+    spruce_undamaged = spruce_ub
+  ) %>%
+  mutate(
+    spruce_damaged = spruce_winter_damage_stems
+  )
+
+num <- function(x) suppressWarnings(as.numeric(as.character(x)))
+
+convert_damage <- function(x) {
+  x <- as.character(x)
+  x <- stringr::str_trim(x)
+  x <- dplyr::case_when(
+    x %in% c("None", "none", "0") ~ "0",
+    x %in% c("Low", "low", "1") ~ "1",
+    x %in% c("Medium", "medium", "2") ~ "2",
+    x %in% c("High", "high", "3") ~ "3",
+    TRUE ~ x
+  )
+  suppressWarnings(as.numeric(x))
+}
+
+damage_cols <- c(
+  "downy_damage",
+  "silver_damage",
+  "rowan_damage",
+  "aspen_damage",
+  "salix_damage",
+  "oak_damage"
+)
+
+Birch_2425 <- Birch %>%
+  mutate(
+    across(c(
+      year, north, east, half_height,
+      pine_undamaged, pine_stems, pine_winter_damage_stems, proportion_pine_damage_winter,
+      spruce_undamaged, spruce_stems, spruce_damaged,
+      downy_total, downy_height,
+      silver_total, silver_height,
+      rowan_total, rowan_height,
+      aspen_total, aspen_height,
+      salix_total, salix_height,
+      oak_total, oak_height,
+      moose_pellets, red_deer_pellets, small_deer_pellets, reindeer_pellets, wild_boar
+    ), num),
+    across(all_of(damage_cols), convert_damage, .names = "{.col}_N")
+  ) %>%
+  filter(year %in% c(2024, 2025))
+
+
 my_colors <- c("#FDE725FF", "#56C667FF", "#238A8DFF", "#3F4788FF")
 #----------------------------#
 # 0) Packages

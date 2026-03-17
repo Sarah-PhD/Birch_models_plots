@@ -377,21 +377,16 @@ summarise <- dplyr::summarise
 # 1) Load data
 #----------------------------#
 # First try read.csv2() because many Swedish csv files use semicolon separators.
-ÄBIN_compact <- read.csv2(
+library(dplyr)
+
+ÄBIN_compact <- read.csv(
   "C:/Users/shge0002/Documents/R/R/ÄBIN2025raw/2025-BINdata_raw/abin_compact.csv",
-  stringsAsFactors = FALSE
+  stringsAsFactors = FALSE,
+  check.names = FALSE
 )
 
-# If this gives one giant column, use this instead:
-# ÄBIN_compact <- read.csv(
-#   "C:/Users/shge0002/Documents/R/R/ÄBIN2025raw/2025-BINdata_raw/abin_compact.csv",
-#   stringsAsFactors = FALSE
-# )
-
-# Quick check
 dim(ÄBIN_compact)
 names(ÄBIN_compact)
-
 
 #----------------------------#
 # 2) Copy to Birch and clean names
@@ -455,19 +450,19 @@ Birch_clean <- Birch[, c(
   
   "rowan_total",
   "rowan_height",
-  "rowan_damaged",
+  "rowan_damage",
   
   "aspen_total",
   "aspen_height",
-  "aspen_damaged",
+  "aspen_damage",
   
   "salix_total",
   "salix_height",
-  "salix_damaged",
+  "salix_damage",
   
   "oak_total",
   "oak_height",
-  "oak_damaged",
+  "oak_damage",
   
   "moose_pellets",
   "red_deer_pellets",
@@ -475,8 +470,6 @@ Birch_clean <- Birch[, c(
   "reindeer_pellets",
   "wild_boar"
 )]
-
-names(Birch_clean)
 
 
 #----------------------------#
@@ -614,10 +607,10 @@ convert_damage <- function(x) {
 damage_cols <- c(
   "downy_damage",
   "silver_damage",
-  "rowan_damaged",
-  "aspen_damaged",
-  "salix_damaged",
-  "oak_damaged"
+  "rowan_damage",
+  "aspen_damage",
+  "salix_damage",
+  "oak_damage"
 )
 
 Birch_2425 <- Birch_2425 %>%

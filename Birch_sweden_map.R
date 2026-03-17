@@ -84,3 +84,4 @@ area_table <- Birch_2425 %>%
 
 area_table
 print(area_table, n = Inf)
+
